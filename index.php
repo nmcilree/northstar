@@ -35,16 +35,18 @@ if(isset($_GET['delete_boards'])){
     $result = pg_query($query) or die('Query failed: ' . pg_last_error());
 }
 
-
-/*
-
 # Boards
 $query = "SELECT id FROM boards";
 $result = pg_query($query);
 if(empty($result)) {
     $query = "CREATE TABLE IF NOT EXISTS boards (
               id SERIAL PRIMARY KEY,
-              board_name CHARACTER VARYING(255) NOT NULL
+              board_name CHARACTER VARYING(255) NOT NULL,
+              top_label CHARACTER VARYING(255) NULL,
+              right_label CHARACTER VARYING(255) NULL,
+              left_label CHARACTER VARYING(255) NULL,
+              bottom_label CHARACTER VARYING(255) NULL,
+              version integer DEFAULT 1
             )";
     
     $result = pg_query($query) or die('Query failed: ' . pg_last_error());
@@ -57,20 +59,11 @@ $query = "CREATE TABLE IF NOT EXISTS tiles (
             content CHARACTER VARYING(255) NULL,
             left_pos CHARACTER VARYING(255) NULL,
             top_pos CHARACTER VARYING(255) NULL,
-            board_id CHARACTER VARYING(255) NULL
+            board_id CHARACTER VARYING(255) NULL,
+            version integer DEFAULT 1
           )";
   
 $result = pg_query($query) or die('Query failed: ' . pg_last_error());
-
-$query = "ALTER TABLE boards ADD version integer DEFAULT 1;";
-$result = pg_query($query) or die('Query failed: ' . pg_last_error());
-
-$query = "ALTER TABLE tiles ADD version integer DEFAULT 1;";
-$result = pg_query($query) or die('Query failed: ' . pg_last_error());
-
-
-*/
-
 
 //////////////////////////////////////////////////////// Init ////////////////////////////////////////////////////////
 
@@ -99,6 +92,10 @@ if(isset($_GET['board_id'])){
     $board_id = $line['id'];
     $board_name = $line['board_name'];
     $board_version = $line['version'];
+    $top_label = $line['top_label'];
+    $bottom_label = $line['bottom_label'];
+    $left_label = $line['left_label'];
+    $right_label = $line['right_label'];
   }  
 
 
@@ -121,7 +118,12 @@ if(isset($_POST['action'])){
   if($_POST['action'] == 'add_board' && $_POST['board_name'] != ''){
       
       $board_name = pg_escape_string($_POST['board_name']);
-      $query = "INSERT INTO boards (board_name) VALUES ('$board_name');";
+      $top_label = pg_escape_string($_POST['top_label']);
+      $bottom_label = pg_escape_string($_POST['bottom_label']);
+      $right_label = pg_escape_string($_POST['right_label']);
+      $left_label = pg_escape_string($_POST['left_label']);
+      
+      $query = "INSERT INTO boards (board_name, top_label, bottom_label, right_label, left_label) VALUES ('$board_name', '$top_label', '$bottom_label', '$right_label', '$left_label');";
       $result = pg_query($query) or die('Query failed: ' . pg_last_error());
       header('location: index.php');
   }
@@ -187,6 +189,8 @@ if(isset($_POST['action'])){
 
   }
 
+
+  // CHeck if another user has updatd one of the tiles
   if($_POST['action'] == 'check_updates' && $_POST['board_id'] != ''){
 
     $board_id = $_POST['board_id'];
@@ -229,7 +233,6 @@ if(isset($_POST['action'])){
       }
 
       echo(json_encode($data));
-
       die();
     }
 
@@ -270,6 +273,13 @@ if(isset($_POST['action'])){
         z-index: 100;
       }
 
+      .metric{
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+
+
+
 
     </style>
 
@@ -307,7 +317,12 @@ if(isset($_POST['action'])){
                 
               </ul>
             </li>
+            <li><a href="#"><b><?php echo($board_name); ?></b></a></li>
           </ul>
+
+            
+
+
             <?php if(isset($board_id)){ ?>
                 <ul class="nav navbar-nav navbar-right">
                   <?php if($board_id != 0) { ?>
@@ -320,9 +335,6 @@ if(isset($_POST['action'])){
     </nav>
 
     <div class="container-fluid" style="padding-top: 50px;">
-
-
-      <h2><?php echo($board_name); ?></h2>
 
 
       <div id="board">
@@ -339,22 +351,30 @@ if(isset($_POST['action'])){
 
       </div>
 
+      <div class="row" style="padding-top: 10px;">
+          <div class="col-md-12" style="text-align: center;"><span class="metric"><?php echo($top_label); ?></span></sub></div>
+      </div>
+
       
 
       <div class="row" style="padding-top: 20px;">
-          <div class="col-md-6 top" style="border-right: 1px solid black; border-bottom:1px solid black"></div>
-          <div class="col-md-6 top" style="border-bottom:1px solid black"></div>
+          <div class="col-md-6 top" style="border-right: 1px dotted silver; border-bottom:1px dotted silver"></div>
+          <div class="col-md-6 top" style="border-bottom:1px dotted silver"></div>
       </div>
 
 
       <div class="row bottom-box">
-          <div class="col-md-6 top" style="border-right: 1px solid black;"></div>
-          <div class="col-md-6"></div>
+          <div class="col-md-6 top" style="border-right: 1px dotted silver; padding-top: 20px;">
+            <span style="padding-left: 20px;" class="metric"><?php echo($left_label); ?></span>
+          </div>
+          <div class="col-md-6" style="text-align: right; padding-top: 20px;">
+            <span style="padding-right: 20px;" class="metric"><?php echo($right_label); ?></span>
+          </div>
       </div>
 
 
       <div class="row">
-          <div class="col-md-12"><sub id="board_version"><?php echo($board_version); ?></sub></div>
+          <div class="col-md-12" style="text-align: center;"><span style="padding-top: 20px;" class="metric"><?php echo($right_label); ?></span></div>
       </div>
 
 
@@ -375,8 +395,22 @@ if(isset($_POST['action'])){
             <p>
                 <form action="index.php" method="post">
                   <div class="form-group">
+                    
                     <label for="board">Name:</label>
                     <input type="text" class="form-control" id="board" name="board_name">
+                    
+                    <label for="top_label">Top label:</label>
+                    <input type="text" class="form-control" id="top_label" name="top_label">
+                    
+                    <label for="bottom_label">Bottom label:</label>
+                    <input type="text" class="form-control" id="bottom_label" name="bottom_label">
+                    
+                    <label for="left_label">Left Label:</label>
+                    <input type="text" class="form-control" id="left_label" name="left_label">
+                    
+                    <label for="right_label">Right Label:</label>
+                    <input type="text" class="form-control" id="right_label" name="right_label">
+
                     <input type="hidden" name="action" value="add_board" />
                   </div>
                   <button type="submit" class="btn btn-default">Submit</button>
