@@ -190,6 +190,52 @@ if(isset($_POST['action'])){
   }
 
 
+    # Update board
+  if($_POST['action'] == 'edit_board' && $_POST['board_id'] != ''){
+      
+      $board_name = pg_escape_string($_POST['board_name']);
+      $top_label = pg_escape_string($_POST['top_label']);
+      $bottom_label = pg_escape_string($_POST['bottom_label']);
+      $right_label = pg_escape_string($_POST['right_label']);
+      $left_label = pg_escape_string($_POST['left_label']);
+      $board_id = $_POST['board_id'];
+      
+      # Update the tile position
+      $query = "UPDATE 
+                  boards 
+                SET 
+                  board_name='$board_name', top_label='$top_label', bottom_label='$bottom_label', right_label='$right_label', left_label='$left_label' 
+                WHERE id = $board_id";
+      
+      $result = pg_query($query) or die('Query failed: ' . pg_last_error());
+
+      header('location: index.php?board_id='.$board_id);
+      die();
+
+  }
+
+
+    # delete tile
+  if($_POST['action'] == 'delete_tile' && $_POST['tile_id'] != ''){
+      
+      $tile_id = pg_escape_string($_POST['tile_id']);
+      $board_id = $_POST['board_id'];
+
+      error_log(print_r($_POST, true));
+      
+      # Update the tile position
+      $query = "DELETE FROM tiles WHERE id = $tile_id";
+      $result = pg_query($query) or die('Query failed: ' . pg_last_error());
+      
+      # Increment the board version
+      update_board_version($board_id);
+
+      echo($tile_id);
+      die();
+
+  }
+
+
   // CHeck if another user has updatd one of the tiles
   if($_POST['action'] == 'check_updates' && $_POST['board_id'] != ''){
 
@@ -265,12 +311,13 @@ if(isset($_POST['action'])){
     <style>
       
       .tile{
-        width: 10%;
+        width: 15%;
         border: 1px dotted silver;
         padding: 5px;
         position: absolute;
         float: left;
         z-index: 100;
+        background: white
       }
 
       .metric{
@@ -278,6 +325,12 @@ if(isset($_POST['action'])){
         font-weight: bold;
       }
 
+      .delete-tile{
+        color: silver;
+        float: right;
+        position: relative;
+        padding-left: 5px;
+      }
 
 
 
@@ -317,10 +370,8 @@ if(isset($_POST['action'])){
                 
               </ul>
             </li>
-            <li><a href="#"><b><?php echo($board_name); ?></b></a></li>
+            <li><a href="#" id="edit-board"><b><?php echo($board_name); ?> <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span> </b></a></li>
           </ul>
-
-            
 
 
             <?php if(isset($board_id)){ ?>
@@ -341,9 +392,15 @@ if(isset($_POST['action'])){
 
         <?php foreach ($tiles as $key => $value) { ?>
 
-         <div class="draggable tile" data-version="<?php echo($value['version']); ?>" id ="tile-<?php echo($value['id']); ?>" style="left:<?php echo($value['left_pos']); ?>;top:<?php echo($value['top_pos']); ?>">
+         <div class="draggable tile" data-version="<?php echo($value['version']); ?>" id ="tile-<?php echo($value['id']); ?>" 
+              style="left:<?php echo($value['left_pos']); ?>;top:<?php echo($value['top_pos']); ?>">
+            
+            <a href="#" class="delete-tile" data-tid="<?php echo($value['id']); ?>" data-board="<?php echo($board_id); ?>">
+              <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+            </a>
             <b><?php echo($value['title']); ?></b>
             <p><?php echo($value['content']); ?></p>
+        
         </div>
 
 
@@ -374,8 +431,14 @@ if(isset($_POST['action'])){
 
 
       <div class="row">
-          <div class="col-md-12" style="text-align: center;"><span style="padding-top: 20px;" class="metric"><?php echo($right_label); ?></span></div>
+          <div class="col-md-12" style="text-align: center;"><span style="padding-top: 20px;" class="metric"><?php echo($bottom_label); ?></span></div>
       </div>
+
+
+      <div class="row">
+          <div class="col-md-12"><sub id="board_version"><?php echo($board_version); ?></sub></div>
+      </div>
+
 
 
     </div> <!-- /container -->
@@ -424,6 +487,53 @@ if(isset($_POST['action'])){
 
       </div>
     </div>
+
+
+    <!-- Add board Modal -->
+    <div id="editBoard" class="modal fade" role="dialog">
+      <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Edit <?php echo($board_name); ?></h4>
+          </div>
+          <div class="modal-body">
+            <p>
+                <form action="index.php" method="post">
+                  <div class="form-group">
+                    
+                    <label for="board">Name:</label>
+                    <input type="text" class="form-control" value="<?php echo($board_name); ?>" id="board" name="board_name">
+                    
+                    <label for="top_label">Top label:</label>
+                    <input type="text" class="form-control" id="top_label"value="<?php echo($top_label); ?>" name="top_label">
+                    
+                    <label for="bottom_label">Bottom label:</label>
+                    <input type="text" class="form-control" id="bottom_label" value="<?php echo($bottom_label); ?>" name="bottom_label">
+                    
+                    <label for="left_label">Left Label:</label>
+                    <input type="text" class="form-control" id="left_label" value="<?php echo($left_label); ?>" name="left_label">
+                    
+                    <label for="right_label">Right Label:</label>
+                    <input type="text" class="form-control" id="right_label" value="<?php echo($right_label); ?>" name="right_label">
+
+                    <input type="hidden" name="board_id" value="<?php echo($board_id); ?>" />
+                    <input type="hidden" name="action" value="edit_board" />
+                  </div>
+                  <button type="submit" class="btn btn-default">Submit</button>
+                </form>
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
 
 
     <!-- Add board Modal -->
@@ -528,6 +638,30 @@ if(isset($_POST['action'])){
         });
 
 
+        $("#edit-board").click(function(event){
+            event.preventDefault();
+            $('#editBoard').modal('show');
+        });
+
+
+        $(".delete-tile").click(function(event){
+            
+            event.preventDefault();
+            
+            $.post("index.php",
+            {
+              tile_id: $(this).data('tid'),
+              action: 'delete_tile',
+              board_id: $(this).data('board')
+            },
+            function(data, status){
+              var elem = document.querySelector('#tile-' + data);
+              elem.parentNode.removeChild(elem);
+            });
+
+
+        });
+
 
         $(function(){
           setInterval(checkUpdates,4000);
@@ -544,8 +678,13 @@ if(isset($_POST['action'])){
           },
           function(data, status){
              var updates = JSON.parse(data);
-             if(updates['update'] == false){
-             } else {
+             
+             if(updates['update'] == false)
+             {
+                //Do nothing
+             } 
+             else 
+             {
               //Update the current board version
               $('#board_version').html(updates['board']['version']);
 
@@ -558,7 +697,9 @@ if(isset($_POST['action'])){
                 // Tile exists so update it's position
                 if($("#tile-" + index).length){  
                   $("#tile-" + index).attr('style', style);  
-                }else{
+                }
+                else
+                {
                   
                   var content = "<b>" + element.title + "</b><p>" + element.content + "</p>";
                   var newDiv = '<div class="draggable tile ui-draggable ui-draggable-handle" id="tile-' + index + '" style="' + style + '">' + content + '</div>';  
@@ -574,6 +715,20 @@ if(isset($_POST['action'])){
 
                 }  
               });
+
+              // CHeck there are no tiles that need deleting
+              $( ".tile" ).each(function() {
+                  
+                  console.log($(this).attr('id'));
+                  var tile_id = $(this).attr('id').replace("tile-", "");
+                  if(!updates['tiles'].hasOwnProperty(tile_id)){
+                    var elem = document.querySelector('#tile-' + tile_id);
+                    elem.parentNode.removeChild(elem);                      
+                  }
+                  
+
+
+              });              
 
 
 
